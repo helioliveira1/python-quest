@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B2545">
+<meta name="description" content="Sistema de estudo de Python em 3 módulos: mapas mentais interativos, quiz, flashcards e 390 exercícios corrigidos automaticamente.">
+<title>Python Quest — Sistema de Estudo</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="vendor/codemirror.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <div class="brand" id="home"><div class="logo">Py</div><div style="min-width:0"><span>Python Quest</span><small>Fundamentos • Básico • Intermediário</small></div></div>
+    <div class="spacer"></div>
+    <div class="hud">
+      <div class="chip" id="streakChip" title="Sequência de dias estudando">🔥 <span id="streak">0</span><span class="lbl" id="streakLbl">&nbsp;dias</span></div>
+      <div class="chip" id="engineChip" title="Status do motor Python"><span class="dot" id="engDot"></span><span class="lbl" id="engTxt">Motor</span></div>
+      <div class="lvl"><div class="badge" id="lvlNum">1</div><div class="info"><b id="lvlName">Iniciante</b><div class="xpbar"><i id="xpBar"></i></div><small id="xpTxt">0 XP</small></div></div>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-go="home">🏠 Painel</button>
+    <button data-go="ex">💻 Praticar</button>
+    <button data-go="rev">🔁 Revisar</button>
+    <button data-go="ach">🏆 Conquistas</button>
+    <button data-go="prog">📊 Progresso</button>
+  </nav>
+</header>
+
+<main id="app"><div class="notice">Carregando…</div></main>
+<footer class="foot">Conteúdo baseado nas apostilas de Python (Fundamentos, Básico e Intermediário). Exercícios autorais. Seu progresso fica salvo só neste navegador.</footer>
+
+<nav class="bottom" id="bnav">
+  <button data-go="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Painel</button>
+  <button data-go="ex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 6l-2 12"/></svg>Praticar</button>
+  <button data-go="rev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Revisar</button>
+  <button data-go="ach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Conquistas</button>
+  <button data-go="prog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Progresso</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<div class="modal" id="modal"><div class="mbox" id="mbox"></div></div>
+<input type="file" id="impFile" accept=".json,application/json" hidden>
+
+<script src="vendor/codemirror.js"></script>
+<script src="assets/harness.js"></script>
+<script src="data/fundamentos.js"></script>
+<script src="data/basico.js"></script>
+<script src="data/intermediario.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
