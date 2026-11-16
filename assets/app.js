@@ -19,6 +19,7 @@ function save(now) {
   S.updated = new Date().toISOString();
   const w = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { storageOk = false; } };
   clearTimeout(saveT); now ? w() : (saveT = setTimeout(w, 200));
+  if (window.PQSync && PQSync.enabled) PQSync.push();
 }
 window.addEventListener("beforeunload", () => { flushDraft(); save(true); });
 document.addEventListener("visibilitychange", () => { if (document.hidden) { flushDraft(); save(true); } });
@@ -255,7 +256,7 @@ function viewHome(app) {
       <li>O Python roda no seu navegador (Pyodide). Na 1ª vez precisa de internet; depois fica em cache.</li>
       <li>Selenium e envio de e-mail são <b>simulados</b> (o código é o mesmo que você usará no seu PC).</li>
       <li>SQL usa <b>SQLite</b> no navegador; a sintaxe do <code>pyodbc</code> (SQL Server) é a mesma.</li>
-      <li>Progresso salvo automaticamente. Faça backup em <b>Progresso</b>.</li></ul></div>
+      <li>Progresso salvo automaticamente neste navegador. Clique em <b>☁️ Entrar</b> (no topo) para sincronizar entre computador e celular.</li></ul></div>
   </div>`;
   app.appendChild(el);
   el.querySelectorAll(".modcard").forEach(c => {
@@ -702,6 +703,8 @@ function viewProg(app) {
       const mp = S.map[tk(M.id, ti)]?.done, qz = S.quiz[tk(M.id, ti)]?.done;
       return `<div class="prow"><div class="nm"><b>${ti + 1}. ${esc(t.name)}</b> <small class="muted">${n}/${t.ex.length}${tried ? ` • ${tried} para revisar` : ""}${mp ? " • 🧠" : ""}${qz ? " • ❓" : ""}${unlocked(M.id, ti) ? "" : " • 🔒"}</small><div class="bar"><i style="width:${n / t.ex.length * 100}%;background:${n === t.ex.length ? "var(--ok)" : "var(--mid)"}"></i></div></div>
       <button class="btn alt" data-m="${M.id}" data-ti="${ti}" ${unlocked(M.id, ti) ? "" : "disabled"}>Abrir</button></div>`; }).join("")}`).join("")}
+  <h3>☁️ Sincronizar entre aparelhos</h3>
+  <div class="card">${window.PQSync ? PQSync.boxHTML() : '<p class="muted" style="margin:0">Sincronização indisponível.</p>'}</div>
   <h3>💾 Salvamento e backup</h3>
   <div class="card">
     <p style="margin-top:0">O progresso é salvo <b>automaticamente</b> neste navegador: exercícios, códigos digitados, estrelas, XP, mapas, quizzes e o ponto onde você parou.
@@ -712,6 +715,7 @@ function viewProg(app) {
   </div>`;
   app.appendChild(el);
   el.querySelectorAll(".prow .btn").forEach(b => b.onclick = () => go({view: "topic", m: b.dataset.m, ti: +b.dataset.ti, tab: "ex"}));
+  if (window.PQSync) PQSync.bindBox();
   $("#exp").onclick = () => {
     flushDraft(); save(true);
     const blob = new Blob([JSON.stringify({app: KEY, data: S}, null, 1)], {type: "application/json"});
@@ -719,7 +723,7 @@ function viewProg(app) {
     setTimeout(() => URL.revokeObjectURL(a.href), 1500); toast("⬇ Backup exportado");
   };
   $("#imp").onclick = () => $("#impFile").click();
-  $("#rst").onclick = () => confirmBox("Zerar todo o progresso?", "XP, estrelas, conquistas, mapas, quizzes e códigos serão apagados. Exporte um backup antes, se quiser.", "Zerar", () => { S = blank(); save(true); renderHUD(); go({view: "home"}); toast("Progresso zerado"); });
+  $("#rst").onclick = () => confirmBox("Zerar todo o progresso?", "XP, estrelas, conquistas, mapas, quizzes e códigos serão apagados (também na nuvem, se você estiver conectado). Exporte um backup antes, se quiser.", "Zerar", () => { S = blank(); save(true); renderHUD(); go({view: "home"}); toast("Progresso zerado"); });
 }
 $("#impFile").onchange = e => {
   const f = e.target.files[0]; if (!f) return;
@@ -833,10 +837,22 @@ const Engine = (() => {
   };
 })();
 
+/* ===================== ponte com a sincronização (assets/sync.js) ===================== */
+window.PQ = {
+  getState() { flushDraft(); return S; },
+  setState(n) {
+    S = Object.assign(blank(), n); save(true); renderHUD();
+    if (CUR.view !== "ex") render(CUR, {keepScroll: true});
+  },
+  resetLocal() { S = blank(); save(true); renderHUD(); go({view: "home"}); },
+  toast: (m, ms) => toast(m, ms),
+};
+
 /* ===================== início ===================== */
 if (!MODS.length) { $("#app").innerHTML = `<div class="feedback no show">Não foi possível carregar os dados (pasta <code>data/</code>).</div>`; }
 else {
   renderHUD();
+  if (window.PQSync) PQSync.init(); else { const c = $("#syncChip"); if (c) c.style.display = "none"; }
   Engine.init();
   let r0 = parseHash();
   if (r0.view === "home" && !location.hash && S.updated && S.last && MOD[S.last.m] && S.last.view === "ex") { r0 = Object.assign({}, S.last, {focus: false}); history.replaceState(null, "", hashOf(r0)); setTimeout(() => toast("📌 Bem-vindo de volta! Você continua de onde parou."), 600); }

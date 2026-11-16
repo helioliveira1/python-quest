@@ -18,6 +18,7 @@
     <div class="spacer"></div>
     <div class="hud">
       <div class="chip" id="streakChip" title="Sequência de dias estudando">🔥 <span id="streak">0</span><span class="lbl" id="streakLbl">&nbsp;dias</span></div>
+      <div class="chip" id="syncChip" role="button" tabindex="0" title="Sincronizar progresso">☁️<span class="lbl">&nbsp;Entrar</span></div>
       <div class="chip" id="engineChip" title="Status do motor Python"><span class="dot" id="engDot"></span><span class="lbl" id="engTxt">Motor</span></div>
       <div class="lvl"><div class="badge" id="lvlNum">1</div><div class="info"><b id="lvlName">Iniciante</b><div class="xpbar"><i id="xpBar"></i></div><small id="xpTxt">0 XP</small></div></div>
     </div>
@@ -32,7 +33,7 @@
 </header>
 
 <main id="app"><div class="notice">Carregando…</div></main>
-<footer class="foot">Conteúdo baseado nas apostilas de Python (Fundamentos, Básico e Intermediário). Exercícios autorais. Seu progresso fica salvo só neste navegador.</footer>
+<footer class="foot">Conteúdo baseado nas apostilas de Python (Fundamentos, Básico e Intermediário). Exercícios autorais. Progresso salvo neste navegador e, com login, na nuvem.</footer>
 
 <nav class="bottom" id="bnav">
   <button data-go="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Painel</button>
@@ -51,6 +52,9 @@
 <script src="data/fundamentos.js"></script>
 <script src="data/basico.js"></script>
 <script src="data/intermediario.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/sync.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

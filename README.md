@@ -24,7 +24,22 @@ sw.js, manifest.webmanifest ← funcionamento offline e "instalar app" no celula
 ferramentas/            ← fontes do conteúdo + scripts para gerar e validar
 ```
 
-**Não precisa de banco de dados nem de servidor.** O progresso fica no `localStorage` do navegador. Para levar o progresso para outro aparelho, use **Progresso › Exportar/Importar backup**.
+O progresso fica no `localStorage` do navegador (funciona offline) e, quando você entra com sua conta (botão **☁️ Entrar** no topo), é sincronizado na nuvem pelo **Supabase**. Ao entrar em outro aparelho, os dois progressos são **mesclados**: vale o melhor resultado de cada exercício, e o XP é recalculado.
+
+## Sincronização (Supabase)
+
+- Projeto Supabase: `python-quest` (região São Paulo). Tabela `public.progresso` (uma linha por usuário, `dados jsonb`) com **RLS**: cada usuário só lê e grava a própria linha.
+- `assets/config.js` tem a URL do projeto e a **chave publicável** (feita para ficar no navegador; a segurança vem do RLS). Para desligar a sincronização, deixe `SUPABASE_URL` vazio.
+- `assets/sync.js`: login (e-mail e senha), envio automático 2,5 s depois de cada mudança, busca ao voltar para a aba e mesclagem.
+- `vendor/supabase.js`: biblioteca oficial `@supabase/supabase-js` 2.118.0 (MIT), servida pelo próprio site.
+
+**Configuração única no painel do Supabase** (Authentication › URL Configuration):
+- **Site URL:** `https://helioliveira1.github.io/python-quest/`
+- **Redirect URLs:** adicione `https://helioliveira1.github.io/python-quest/**` (e `http://localhost:8000/**` se for testar localmente).
+
+Sem isso, os links de confirmação de cadastro e de "esqueci a senha" apontam para `localhost:3000`. Se quiser cadastro sem e-mail de confirmação, desligue **Authentication › Sign In / Providers › Email › Confirm email**.
+
+> No plano gratuito, o Supabase pausa o projeto depois de 7 dias sem uso. Se a sincronização parar, reative em supabase.com/dashboard (o progresso local continua funcionando).
 
 ## Abrir no computador
 

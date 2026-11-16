@@ -1,6 +1,6 @@
 /* Service worker: deixa o sistema disponível offline depois da 1ª visita (inclui o Python/Pyodide em cache). */
-const VERSAO = "pyquest-v1";
-const APP = ["./", "index.html", "assets/app.css", "assets/app.js", "assets/harness.js", "assets/icon.svg",
+const VERSAO = "pyquest-v2";
+const APP = ["./", "index.html", "assets/app.css", "assets/app.js", "assets/harness.js", "assets/config.js", "assets/sync.js", "vendor/supabase.js", "assets/icon.svg",
   "vendor/codemirror.css", "vendor/codemirror.js", "data/fundamentos.js", "data/basico.js", "data/intermediario.js", "manifest.webmanifest"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(VERSAO).then(c => c.addAll(APP)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
