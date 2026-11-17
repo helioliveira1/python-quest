@@ -14,7 +14,7 @@
 <body>
 <header class="top">
   <div class="top-row">
-    <div class="brand" id="home"><div class="logo">Py</div><div style="min-width:0"><span>Python Quest</span><small>Fundamentos • Básico • Intermediário</small></div></div>
+    <div class="brand" id="home"><div class="logo">Py</div><div style="min-width:0"><span>Python Quest</span><small>Fundamentos • Básico • Intermediário • Banco • Projetos</small></div></div>
     <div class="spacer"></div>
     <div class="hud">
       <div class="chip" id="streakChip" title="Sequência de dias estudando">🔥 <span id="streak">0</span><span class="lbl" id="streakLbl">&nbsp;dias</span></div>
@@ -26,6 +26,7 @@
   <nav class="tabs" id="tabs">
     <button data-go="home">🏠 Painel</button>
     <button data-go="ex">💻 Praticar</button>
+    <button data-go="proj">🛠️ Projetos</button>
     <button data-go="rev">🔁 Revisar</button>
     <button data-go="ach">🏆 Conquistas</button>
     <button data-go="prog">📊 Progresso</button>
@@ -39,7 +40,7 @@
   <button data-go="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Painel</button>
   <button data-go="ex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 6l-2 12"/></svg>Praticar</button>
   <button data-go="rev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Revisar</button>
-  <button data-go="ach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Conquistas</button>
+  <button data-go="proj"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Projetos</button>
   <button data-go="prog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Progresso</button>
 </nav>
 
@@ -52,6 +53,8 @@
 <script src="data/fundamentos.js"></script>
 <script src="data/basico.js"></script>
 <script src="data/intermediario.js"></script>
+<script src="data/banco.js"></script>
+<script src="data/projetos.js"></script>
 <script src="vendor/supabase.js"></script>
 <script src="assets/config.js"></script>
 <script src="assets/sync.js"></script>

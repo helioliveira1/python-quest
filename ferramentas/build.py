@@ -68,6 +68,17 @@ INTER = [
     load("i11_bs4"),
 ]
 
+import glob
+def load_banco():
+    out = []
+    for f in sorted(glob.glob("content/banco/b*.py")):
+        spec = importlib.util.spec_from_file_location(os.path.basename(f)[:-3], f)
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        out.append(m.TOPIC)
+    return out
+
+BANCO = load_banco()
+
 MODS = [
     dict(id="fundamentos", name="Fundamentos", icon="🧱", color="#1E5AA8", pdf="0_PYTHON_FUNDAMENTOS.pdf",
          desc="Lógica, variáveis, if, strings, listas, for, while, tuplas, dicionários e iteráveis.", topics=FUND),
@@ -75,6 +86,8 @@ MODS = [
          desc="Funções, argumentos e exceções, list comprehension, módulos e orientação a objetos.", topics=BAS),
     dict(id="intermediario", name="Intermediário", icon="🚀", color="#5C6773", pdf="2_PYTHON_INTERMEDIARIO.pdf",
          desc="Lambda, NumPy, Pandas, datas e APIs, gráficos, arquivos, e-mail, SQL, Selenium e web scraping.", topics=INTER),
+    dict(id="banco", name="Banco de Exercícios", icon="🏋️", color="#2B6CB0", free=True, pdf="Python na Prática + Exercícios Python",
+         desc="Centenas de exercícios extras por tema, do básico ao avançado, com contextos do dia a dia. Todas as fases liberadas.", topics=BANCO),
 ]
 
 if __name__ == "__main__":
@@ -83,7 +96,7 @@ if __name__ == "__main__":
     allt = []
     for m in MODS:
         for t in m["topics"]:
-            assert len(t["ex"]) == 15, (m["id"], t["name"])
+            assert len(t["ex"]) == 15 or m["id"] == "banco", (m["id"], t["name"])
             for k in ("name", "short", "cdesc", "groups", "hot", "trap", "examples", "ex", "map", "src"):
                 assert k in t, (t["name"], k)
             allt.append(t)
@@ -92,6 +105,20 @@ if __name__ == "__main__":
         print(m["id"], len(m["topics"]), "fases,", sum(len(t["ex"]) for t in m["topics"]), "exercícios,", len(js) // 1024, "KB")
     json.dump(allt, open("all_topics.json", "w"), ensure_ascii=False)
     print("total:", len(allt), "fases,", sum(len(t["ex"]) for t in allt), "exercícios")
+    if os.path.exists("content/projetos.py"):
+        spec = importlib.util.spec_from_file_location("projetos", "content/projetos.py")
+        pm = importlib.util.module_from_spec(spec); spec.loader.exec_module(pm)
+        pj = {"trilhas": pm.TRILHAS, "ideias": pm.IDEIAS}
+        ids = [p["id"] for t in pm.TRILHAS for p in t["projetos"]]
+        assert len(ids) == len(set(ids)), "ids de projeto repetidos"
+        for t in pm.TRILHAS:
+            for p in t["projetos"]:
+                for k in ("id", "titulo", "nivel", "tempo", "resumo", "contexto", "objetivo", "aprende", "etapas", "criterios", "extras"):
+                    assert k in p, (p.get("id"), k)
+        open(f"{out}/projetos.js", "w", encoding="utf-8").write("window.PQ_PROJ = " + json.dumps(pj, ensure_ascii=False, separators=(",", ":")) + ";\n")
+        print("projetos:", len(ids), "em", len(pm.TRILHAS), "trilhas")
+    else:
+        open(f"{out}/projetos.js", "w", encoding="utf-8").write("window.PQ_PROJ = {trilhas: [], ideias: []};\n")
     h = open("harness.py", encoding="utf-8").read()
     open("../assets/harness.js", "w", encoding="utf-8").write("window.PQ_HARNESS = " + json.dumps(h, ensure_ascii=False) + ";\n")
     print("assets/harness.js atualizado")

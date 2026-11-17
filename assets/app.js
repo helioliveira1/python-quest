@@ -3,14 +3,17 @@
 "use strict";
 
 /* ===================== dados ===================== */
-const MOD_ORDER = ["fundamentos", "basico", "intermediario"];
+const MOD_ORDER = ["fundamentos", "basico", "intermediario", "banco"];
+const PROJ = window.PQ_PROJ || {trilhas: [], ideias: []};
+const PROJ_ALL = PROJ.trilhas.flatMap(tr => tr.projetos.map(p => Object.assign({trilha: tr.id}, p)));
+const PROJ_BY = Object.fromEntries(PROJ_ALL.map(p => [p.id, p]));
 const MODS = MOD_ORDER.map(id => window.PQ_DATA && window.PQ_DATA[id]).filter(Boolean);
 const MOD = Object.fromEntries(MODS.map(m => [m.id, m]));
 const KEY = "pyquest_sistema_v1";
 const PYBASE = window.PQ_PYBASE || "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/";
 
 /* ===================== estado persistente ===================== */
-const blank = () => ({xp: 0, ex: {}, map: {}, quiz: {}, free: false, last: null, days: [], achv: {}, layout: {}, memo: true,
+const blank = () => ({xp: 0, ex: {}, map: {}, quiz: {}, proj: {}, free: false, last: null, days: [], achv: {}, layout: {}, memo: true,
   created: new Date().toISOString(), updated: null});
 let S = blank(), storageOk = true;
 try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) { storageOk = false; }
@@ -39,8 +42,10 @@ const totalEx = MODS.reduce((a, m) => a + modTotal(m.id), 0);
 const totalTopics = MODS.reduce((a, m) => a + m.topics.length, 0);
 const diffOf = ei => ei < 5 ? 0 : ei < 10 ? 1 : 2;
 const DIFF = ["Fácil", "Médio", "Desafio"];
-const baseXP = ei => [10, 20, 30][diffOf(ei)];
-const unlocked = (m, ti) => S.free || ti === 0 || solvedIn(m, ti - 1) >= 5;
+const dOf = (x, ei) => (x && x.d !== undefined) ? x.d : diffOf(ei);
+const dAt = (m, ti, ei) => dOf(topic(m, ti) && topic(m, ti).ex[ei], ei);
+const baseXP = d => [10, 20, 30][d];
+const unlocked = (m, ti) => S.free || (MOD[m] && MOD[m].free) || ti === 0 || solvedIn(m, ti - 1) >= 5;
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const starsHTML = n => "★".repeat(n) + "<s>" + "★".repeat(3 - n) + "</s>";
 const GC = ["var(--mid)", "var(--graphite)", "var(--slate)", "var(--dark)", "#2B6CB0", "#4A5568"];
@@ -68,7 +73,9 @@ function stats() {
     solved: all.filter(x => x.solved).length,
     perfect: all.filter(x => x.solved && x.stars === 3).length,
     firstTry: all.filter(x => x.solved && x.firstTry).length,
-    hard: Object.entries(S.ex).filter(([k, x]) => x.solved && diffOf(+k.split(":")[2]) === 2).length,
+    hard: Object.entries(S.ex).filter(([k, x]) => { const [m, ti, ei] = k.split(":"); return x.solved && MOD[m] && topic(m, +ti) && dAt(m, +ti, +ei) === 2; }).length,
+    projDone: Object.values(S.proj || {}).filter(p => p.done).length,
+    bancoSolved: MOD.banco ? modSolved("banco") : 0,
     persist: all.some(x => x.solved && x.attempts >= 4),
     phasesDone: MODS.reduce((a, m) => a + modPhasesDone(m.id), 0),
     maps: Object.values(S.map).filter(x => x.done).length,
@@ -97,7 +104,10 @@ const ACH = [
   ["modF", "🧱", "Base sólida", "Conclua o módulo Fundamentos", s => s.modDone("fundamentos")],
   ["modB", "🧩", "Peças no lugar", "Conclua o módulo Básico", s => s.modDone("basico")],
   ["modI", "🚀", "Decolou", "Conclua o módulo Intermediário", s => s.modDone("intermediario")],
-  ["master", "👑", "Mestre Python", "Conclua os 3 módulos", s => MOD_ORDER.every(s.modDone)],
+  ["master", "👑", "Mestre Python", "Conclua Fundamentos, Básico e Intermediário", s => ["fundamentos", "basico", "intermediario"].every(s.modDone)],
+  ["banco50", "🏋️", "Rato de academia", "Resolva 50 exercícios do Banco de Exercícios", s => s.bancoSolved >= 50],
+  ["proj1", "🛠️", "Mão na massa", "Conclua seu primeiro projeto", s => s.projDone >= 1],
+  ["proj5", "🏗️", "Construtor", "Conclua 5 projetos", s => s.projDone >= 5],
 ];
 function checkAch() {
   const s = stats(), novos = [];
@@ -150,6 +160,7 @@ function hashOf(r) {
     case "topic": return `#/m/${r.m}/${r.ti}` + (r.tab ? `?${r.tab}` : "");
     case "ex": return `#/m/${r.m}/${r.ti}/${r.ei}`;
     case "home": return "#/";
+    case "proj": return r.id ? `#/proj/${r.id}` : "#/proj";
     default: return "#/" + r.view;
   }
 }
@@ -163,6 +174,7 @@ function parseHash() {
     }
     return {view: "mod", m};
   }
+  if (p[0] === "proj") return {view: "proj", id: p[1] && PROJ_BY[p[1]] ? p[1] : null};
   if (["ach", "prog", "rev"].includes(p[0])) return {view: p[0]};
   return {view: "home"};
 }
@@ -181,7 +193,7 @@ function render(r, opts = {}) {
   setNav(r.view);
   document.onkeydown = null; CM = null; draftKey = null;
   const app = $("#app"); app.innerHTML = "";
-  ({home: viewHome, mod: viewMod, topic: viewTopic, ex: viewEx, ach: viewAch, prog: viewProg, rev: viewRev})[r.view](app, r);
+  ({home: viewHome, mod: viewMod, topic: viewTopic, ex: viewEx, ach: viewAch, prog: viewProg, rev: viewRev, proj: viewProj})[r.view](app, r);
   app.firstElementChild && app.firstElementChild.classList.add("view");
   if (!opts.keepScroll) window.scrollTo({top: 0});
 }
@@ -246,6 +258,8 @@ function viewHome(app) {
         <div class="mfoot"><button class="btn" data-open="${m.id}">🗺️ Abrir trilha</button>${r ? `<button class="btn acc" data-cont="${m.id}">▶ Continuar</button>` : `<span class="pill ok">✓ Completo</span>`}</div>
       </div></div>`;
   }).join("")}</div>
+  ${PROJ_ALL.length ? `<div class="sec-title"><h2>🛠️ Projetos práticos</h2><span class="pill gray">${PROJ_ALL.filter(p => projPeek(p.id).done).length}/${PROJ_ALL.length} concluídos</span></div>
+  <div class="projstrip">${PROJ.trilhas.map(t => `<button class="ptri" data-tri="${t.id}"><span class="pi">${t.icone}</span><b>${esc(t.nome)}</b><small>${t.projetos.length} projetos • ${esc(t.nivel || "")}</small></button>`).join("")}</div>` : ""}
   <div class="two">
     <div class="card"><h3 style="margin-top:0">🎮 Como jogar</h3><ol class="hot">
       <li>Abra uma fase e estude o <b>mapa mental</b>. No <b>modo memória</b>, as descrições ficam escondidas: lembre e toque para revelar (+10 XP).</li>
@@ -267,6 +281,7 @@ function viewHome(app) {
   $("#recBtn").onclick = () => go(rec);
   if (hasResume) $("#contBtn").onclick = () => go(L);
   $("#revBtn").onclick = () => go({view: "rev"});
+  el.querySelectorAll(".ptri").forEach(b => b.onclick = () => go({view: "proj", tri: b.dataset.tri}));
 }
 
 /* ===================== TRILHA DO MÓDULO ===================== */
@@ -505,9 +520,9 @@ function tabEx(box, m, ti) {
     box.innerHTML = `<div class="filters"><div class="seg" id="flt">${[["all", "Todos"], ["0", "Fáceis"], ["1", "Médios"], ["2", "Desafios"], ["todo", "Pendentes"]].map(([k, n]) => `<button data-f="${k}" class="${f === k ? "on" : ""}">${n}</button>`).join("")}</div></div>
     <div class="exlist">${t.ex.map((x, ei) => {
       const st = peek(m, ti, ei), cls = st.solved ? "solved" : st.attempts ? "tried" : "";
-      if (f === "todo" && st.solved) return ""; if (["0", "1", "2"].includes(f) && diffOf(ei) !== +f) return "";
+      if (f === "todo" && st.solved) return ""; if (["0", "1", "2"].includes(f) && dOf(x, ei) !== +f) return "";
       return `<button class="exc ${cls}" data-ei="${ei}"><div class="num">${st.solved ? "✓" : ei + 1}</div><div class="et"><b>${esc(x.t)}</b>
-        <span class="diff d${diffOf(ei)}">${DIFF[diffOf(ei)]}</span><span class="muted" style="font-size:.75rem"> • ${baseXP(ei)} XP</span></div><div class="stars">${st.solved ? starsHTML(st.stars) : ""}</div></button>`;
+        <span class="diff d${dOf(x, ei)}">${DIFF[dOf(x, ei)]}</span><span class="muted" style="font-size:.75rem"> • ${baseXP(dOf(x, ei))} XP</span>${/^entradas\s*=/m.test(x.s || "") ? ' <span class="mode">⌨️ input</span>' : ""}</div><div class="stars">${st.solved ? starsHTML(st.stars) : ""}</div></button>`;
     }).join("") || '<p class="muted">Nada aqui. 🎉</p>'}</div>`;
     box.querySelectorAll("#flt button").forEach(b => b.onclick = () => { f = b.dataset.f; draw(); });
     box.querySelectorAll(".exc").forEach(b => b.onclick = () => go({view: "ex", m, ti, ei: +b.dataset.ei}));
@@ -520,9 +535,11 @@ let CM = null, draftKey = null, draftT;
 function flushDraft() { if (CM && draftKey) { const [m, ti, ei] = draftKey.split(":"); exState(m, +ti, +ei).code = CM.getValue(); } }
 const PKG_RX = [["numpy", /\bnumpy\b|\bnp\./], ["pandas", /\bpandas\b|\bpd\./], ["matplotlib", /\bmatplotlib\b|\bplt\./], ["beautifulsoup4", /\bbs4\b|BeautifulSoup/], ["sqlite3", /\bsqlite3\b/], ["seaborn", /\bseaborn\b|\bsns\./]];
 function pkgsFor(x, code) { const txt = (code || "") + "\n" + (x.s || ""); return PKG_RX.filter(([, rx]) => rx.test(txt)).map(([n]) => n); }
+const usaInput = x => /^entradas\s*=/m.test(x.s || "");
 function starterPy(x) {
-  const vars = [...(x.s || "").matchAll(/^([A-Za-z_]\w*)\s*=/gm)].map(m => m[1]).filter(v => !["pd", "np", "plt", "sns"].includes(v));
-  return "# Escreva seu código abaixo." + (vars.length ? "\n# Já disponível: " + [...new Set(vars)].slice(0, 8).join(", ") : "") + "\n\n";
+  const vars = [...(x.s || "").matchAll(/^([A-Za-z_]\w*)\s*=/gm)].map(m => m[1]).filter(v => !["pd", "np", "plt", "sns", "entradas"].includes(v));
+  return "# Escreva seu código abaixo." + (usaInput(x) ? "\n# Use input() normalmente: as entradas de teste são digitadas automaticamente." : "")
+    + (vars.length ? "\n# Já disponível: " + [...new Set(vars)].slice(0, 8).join(", ") : "") + "\n\n";
 }
 function viewEx(app, r) {
   const m = r.m, ti = r.ti, ei = r.ei, t = topic(m, ti), x = t.ex[ei];
@@ -534,10 +551,11 @@ function viewEx(app, r) {
   <div class="exwrap">
     <div>
       <div class="card">
-        <div class="exhead"><h2>${ei + 1}. ${esc(x.t)}</h2><span class="diff d${diffOf(ei)}">${DIFF[diffOf(ei)]}</span><span class="stars" id="exStars">${st.solved ? starsHTML(st.stars) : ""}</span></div>
+        <div class="exhead"><h2>${ei + 1}. ${esc(x.t)}</h2><span class="diff d${dOf(x, ei)}">${DIFF[dOf(x, ei)]}</span><span class="stars" id="exStars">${st.solved ? starsHTML(st.stars) : ""}</span></div>
         ${pk.length ? `<div class="pkgs" style="margin-bottom:8px">${pk.map(p => `<span class="pill gray">📦 ${p}</span>`).join("")}</div>` : ""}
         <div class="prompt">${x.p}</div>
-        ${x.s ? `<div class="box"><details class="setup" ${longSetup ? "" : "open"}><summary>📦 Dados disponíveis (carregados antes do seu código)${longSetup ? " — toque para ver" : ""}</summary><div class="codebox"><pre class="code">${esc(x.s)}</pre></div></details></div>` : ""}
+        ${usaInput(x) ? `<div class="box"><h5>⌨️ Entradas simuladas para input()</h5><div class="feedback info show" style="margin:0">Cada <code>input()</code> do seu código recebe, em ordem: ${((x.s.match(/^entradas\s*=\s*\[(.*)\]/m) || [, ""])[1].match(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g) || []).map(v => `<code>${esc(v.slice(1, -1))}</code>`).join(" → ")}<br><small>Os testes também rodam seu programa com outras entradas.</small></div></div>` : ""}
+        ${x.s && x.s.replace(/^entradas\s*=.*$/m, "").trim() ? `<div class="box"><details class="setup" ${longSetup ? "" : "open"}><summary>📦 Dados disponíveis (carregados antes do seu código)${longSetup ? " — toque para ver" : ""}</summary><div class="codebox"><pre class="code">${esc(x.s.replace(/^entradas\s*=.*$/m, "").trim())}</pre></div></details></div>` : ""}
         <div class="box"><h5>💡 Dicas <span class="muted" id="hintCount"></span></h5><div class="hints" id="hints"></div></div>
         <div class="feedback" id="fb"></div>
         <div class="solution" id="sol"></div>
@@ -637,7 +655,7 @@ function viewEx(app, r) {
     if (first) {
       const stars = st.sawSol ? 1 : Math.max(1, 3 - st.hints);
       st.stars = stars; st.solved = true; st.firstTry = st.attempts === 1 && !st.hints && !st.sawSol;
-      gained = st.sawSol ? 0 : Math.round(baseXP(ei) * stars / 3) + (st.firstTry ? 5 : 0);
+      gained = st.sawSol ? 0 : Math.round(baseXP(dOf(x, ei)) * stars / 3) + (st.firstTry ? 5 : 0);
       st.xp = gained; st.solvedAt = new Date().toISOString();
       $("#exStars").innerHTML = starsHTML(stars); confetti();
       gainXP(gained);
@@ -658,6 +676,99 @@ let errLine = null;
 function markErrLine(n) { if (!CM || !n || !CM.lineCount || n > CM.lineCount()) return; errLine = n - 1; CM.addLineClass(errLine, "background", "err-line"); }
 function clearErrLine() { if (CM && errLine !== null) { CM.removeLineClass(errLine, "background", "err-line"); errLine = null; } }
 
+/* ===================== PROJETOS (guias para fazer no computador) ===================== */
+const NIVEL_CL = {"Iniciante": "d0", "Intermediário": "d1", "Avançado": "d2", "Pro": "d2"};
+function projState(id) { S.proj = S.proj || {}; return S.proj[id] || (S.proj[id] = {steps: [], crit: [], cred: [], hints: [], done: false, repo: "", notas: ""}); }
+const projPeek = id => (S.proj && S.proj[id]) || {steps: [], crit: [], done: false};
+function projPct(p) { const st = projPeek(p.id); const tot = p.etapas.length + p.criterios.length; return tot ? Math.round(((st.steps || []).length + (st.crit || []).length) / tot * 100) : 0; }
+function viewProj(app, r) {
+  if (r.id) return viewProjDet(app, PROJ_BY[r.id]);
+  let tri = r.tri || "todas", fs = r.fs || "todos";
+  const el = document.createElement("div");
+  const draw = () => {
+    const lista = PROJ_ALL.filter(p => (tri === "todas" || p.trilha === tri) && (fs === "todos" || (fs === "andamento" ? !projPeek(p.id).done && projPct(p) > 0 : fs === "feitos" ? projPeek(p.id).done : projPct(p) === 0)));
+    const feitos = PROJ_ALL.filter(p => projPeek(p.id).done).length;
+    el.innerHTML = `
+    <div class="hero" style="grid-template-columns:1fr"><div class="welcome"><h2>🛠️ Projetos práticos</h2>
+      <p>Projetos para fazer <b>no seu computador</b>, com o editor e o terminal de verdade. Cada guia traz o contexto, o objetivo, o passo a passo com dicas que você revela aos poucos e os critérios de "pronto". Não há código pronto: a ideia é você construir.</p>
+      <div class="hacts"><span class="pill gray">${feitos}/${PROJ_ALL.length} concluídos</span><span class="pill gray">+5 XP por etapa • +50 XP por projeto</span></div></div></div>
+    <div class="filters"><div class="seg" id="ftri"><button data-v="todas">Todas</button>${PROJ.trilhas.map(t => `<button data-v="${t.id}">${t.icone} ${esc(t.nome)}</button>`).join("")}</div>
+      <div class="seg" id="fst">${[["todos", "Todos"], ["novos", "Não iniciados"], ["andamento", "Em andamento"], ["feitos", "Concluídos"]].map(([k, n]) => `<button data-v="${k}">${n}</button>`).join("")}</div></div>
+    ${tri !== "todas" ? `<p class="muted" style="margin-top:-4px">${esc((PROJ.trilhas.find(t => t.id === tri) || {}).desc || "")}</p>` : ""}
+    <div class="projgrid">${lista.map(p => { const st = projPeek(p.id), pc = projPct(p); return `<button class="projcard ${st.done ? "done" : ""}" data-id="${p.id}">
+      <div class="ph"><span class="pill gray">${esc((PROJ.trilhas.find(t => t.id === p.trilha) || {}).icone || "")} ${esc((PROJ.trilhas.find(t => t.id === p.trilha) || {}).nome || "")}</span><span class="diff ${NIVEL_CL[p.nivel] || "d1"}">${esc(p.nivel)}</span></div>
+      <b>${esc(p.titulo)}</b><small class="muted">${esc(p.resumo)}</small>
+      <div class="chips">${(p.stack || []).slice(0, 5).map(t => `<span>${esc(t)}</span>`).join("")}</div>
+      <div class="pf"><div class="bar"><i style="width:${pc}%;background:${st.done ? "var(--ok)" : "var(--mid)"}"></i></div><small>${st.done ? "✓ concluído" : pc ? pc + "%" : "⏱ " + esc(p.tempo || "")}</small></div></button>`; }).join("") || '<p class="muted">Nenhum projeto com esse filtro.</p>'}</div>
+    ${PROJ.ideias && PROJ.ideias.length ? `<h3>💡 Banco de ideias</h3><p class="muted" style="margin-top:-6px">Ideias curtas para praticar quando quiser variar. Escolha uma, defina o escopo e use a estrutura dos guias acima (objetivo, etapas, critérios de pronto).</p>
+      <div class="ideias">${PROJ.ideias.map(g => `<details class="card"><summary><b>${esc(g.grupo)}</b> <small class="muted">(${g.itens.length})</small></summary><ul>${g.itens.map(i => `<li>${esc(i)}</li>`).join("")}</ul></details>`).join("")}</div>` : ""}`;
+    el.querySelectorAll("#ftri button").forEach(b => { b.classList.toggle("on", b.dataset.v === tri); b.onclick = () => { tri = r.tri = b.dataset.v; draw(); }; });
+    el.querySelectorAll("#fst button").forEach(b => { b.classList.toggle("on", b.dataset.v === fs); b.onclick = () => { fs = r.fs = b.dataset.v; draw(); }; });
+    el.querySelectorAll(".projcard").forEach(b => b.onclick = () => go({view: "proj", id: b.dataset.id}));
+  };
+  app.appendChild(el); draw();
+}
+function viewProjDet(app, p) {
+  const st = projState(p.id), tr = PROJ.trilhas.find(t => t.id === p.trilha) || {};
+  const el = document.createElement("div");
+  const li = a => (a || []).map(x => `<li>${esc(x)}</li>`).join("");
+  el.innerHTML = `
+  <div class="crumbs"><button id="bkP">← Projetos</button><span>›</span><span>${esc(tr.nome || "")}</span></div>
+  <div class="card projhead"><div class="ph"><span class="pill gray">${esc(tr.icone || "")} ${esc(tr.nome || "")}</span><span class="diff ${NIVEL_CL[p.nivel] || "d1"}">${esc(p.nivel)}</span><span class="pill">⏱ ${esc(p.tempo || "")}</span>${p.fonte ? `<span class="pill gray">📚 ${esc(p.fonte)}</span>` : ""}</div>
+    <h2 style="margin:8px 0 4px">${esc(p.titulo)}</h2><p class="muted" style="margin:0">${esc(p.resumo)}</p>
+    <div class="chips" style="margin-top:10px">${(p.stack || []).map(t => `<span>${esc(t)}</span>`).join("")}</div>
+    <div class="pf" style="margin-top:12px"><div class="bar"><i id="pbar"></i></div><small id="ptxt"></small></div></div>
+  <div class="two">
+    <div class="card"><h3 style="margin-top:0">📍 Contexto</h3><p>${esc(p.contexto)}</p><h3>🎯 Objetivo</h3><p style="margin-bottom:0">${esc(p.objetivo)}</p></div>
+    <div class="card"><h3 style="margin-top:0">🧠 O que você vai praticar</h3><div class="chips big">${(p.aprende || []).map(t => `<span>${esc(t)}</span>`).join("")}</div>
+      ${p.preparo && p.preparo.length ? `<h3>🧰 Antes de começar</h3><ul class="plist">${li(p.preparo)}</ul>` : ""}</div>
+  </div>
+  <h3>🪜 Passo a passo <small class="muted" id="stCount"></small></h3>
+  <div class="steps">${p.etapas.map((e, i) => `<div class="step ${st.steps.includes(i) ? "ok" : ""}" data-i="${i}">
+      <label class="chk"><input type="checkbox" data-s="${i}" ${st.steps.includes(i) ? "checked" : ""}><span class="num">${i + 1}</span></label>
+      <div class="sb"><b>${esc(e.titulo)}</b><p>${esc(e.texto)}</p>${e.dica ? `<button class="linkbtn" data-h="${i}">💡 ${st.hints.includes(i) ? "Dica" : "Ver dica"}</button><div class="hint" data-hb="${i}" ${st.hints.includes(i) ? "" : "hidden"}>${esc(e.dica)}</div>` : ""}</div></div>`).join("")}</div>
+  <div class="two">
+    <div class="card"><h3 style="margin-top:0">✅ Critérios de pronto</h3><p class="muted" style="font-size:.85rem;margin-top:-6px">Só marque quando for verdade no seu projeto.</p>
+      <div class="crit">${p.criterios.map((c, i) => `<label class="chk2"><input type="checkbox" data-c="${i}" ${st.crit.includes(i) ? "checked" : ""}><span>${esc(c)}</span></label>`).join("")}</div></div>
+    <div class="card"><h3 style="margin-top:0">🚀 Desafios extras</h3><ul class="plist">${li(p.extras)}</ul>
+      ${p.cuidados && p.cuidados.length ? `<h3>⚠️ Cuidados</h3><ul class="plist">${li(p.cuidados)}</ul>` : ""}</div>
+  </div>
+  <h3>📦 Entrega</h3>
+  <div class="card"><ul class="plist" style="margin-top:0">${li(p.entrega || ["Código no GitHub com README explicando como instalar e rodar.", "Prints ou GIF do projeto funcionando."])}</ul>
+    <label class="flabel">Link do repositório (GitHub)<input id="pRepo" type="url" placeholder="https://github.com/..." value="${esc(st.repo || "")}"></label>
+    <label class="flabel">Anotações (o que aprendeu, dificuldades, próximos passos)<textarea id="pNotas" rows="3">${esc(st.notas || "")}</textarea></label>
+    <div class="row"><button class="btn check" id="pDone">${st.done ? "✓ Projeto concluído" : "🏁 Marcar projeto como concluído"}</button><span class="muted" id="pDoneMsg" style="font-size:.85rem;align-self:center"></span></div></div>`;
+  app.appendChild(el);
+  $("#bkP").onclick = () => go({view: "proj"});
+  const upd = () => {
+    const tot = p.etapas.length + p.criterios.length, n = st.steps.length + st.crit.length, pc = tot ? Math.round(n / tot * 100) : 0;
+    $("#pbar").style.width = pc + "%"; $("#pbar").style.background = st.done ? "var(--ok)" : "var(--mid)";
+    $("#ptxt").textContent = st.done ? "✓ Concluído" : `${pc}% • ${st.steps.length}/${p.etapas.length} etapas • ${st.crit.length}/${p.criterios.length} critérios`;
+    $("#stCount").textContent = `(${st.steps.length}/${p.etapas.length})`;
+    const ok = st.crit.length === p.criterios.length;
+    $("#pDone").disabled = st.done || !ok;
+    $("#pDoneMsg").textContent = st.done ? "" : ok ? "" : "Marque todos os critérios de pronto para concluir.";
+  };
+  el.querySelectorAll("[data-s]").forEach(c => c.onchange = () => {
+    const i = +c.dataset.s;
+    if (c.checked) { if (!st.steps.includes(i)) st.steps.push(i); if (!st.cred.includes(i)) { st.cred.push(i); gainXP(5, "etapa concluída"); } }
+    else st.steps = st.steps.filter(x => x !== i);
+    c.closest(".step").classList.toggle("ok", c.checked); save(); upd();
+  });
+  el.querySelectorAll("[data-h]").forEach(b => b.onclick = () => {
+    const i = +b.dataset.h, box = el.querySelector(`[data-hb="${i}"]`); box.hidden = !box.hidden;
+    if (!st.hints.includes(i)) { st.hints.push(i); save(); } b.textContent = "💡 Dica";
+  });
+  el.querySelectorAll("[data-c]").forEach(c => c.onchange = () => {
+    const i = +c.dataset.c; if (c.checked) { if (!st.crit.includes(i)) st.crit.push(i); } else st.crit = st.crit.filter(x => x !== i);
+    save(); upd();
+  });
+  let tT; const salvaTxt = () => { clearTimeout(tT); tT = setTimeout(() => { st.repo = $("#pRepo").value.trim(); st.notas = $("#pNotas").value; save(); }, 400); };
+  $("#pRepo").oninput = salvaTxt; $("#pNotas").oninput = salvaTxt;
+  $("#pDone").onclick = () => { if (st.done) return; st.done = true; st.doneAt = new Date().toISOString(); confetti(); gainXP(50, `projeto concluído: ${p.titulo}`); upd(); $("#pDone").textContent = "✓ Projeto concluído"; };
+  upd();
+}
+
 /* ===================== REVISAR ===================== */
 function viewRev(app) {
   const items = [];
@@ -668,7 +779,7 @@ function viewRev(app) {
   const el = document.createElement("div");
   el.innerHTML = `<h2>🔁 Revisar</h2><p class="muted" style="margin-top:-6px">Exercícios tentados e ainda não resolvidos, e os que você resolveu depois de ver a solução (refaça sem olhar!).</p>
   ${items.length ? `<div class="review-list">${items.map((it, k) => `<button class="exc ${it.s.solved ? "solved" : "tried"}" data-k="${k}"><div class="num">${it.s.solved ? "👁" : "!"}</div><div class="et"><b>${esc(it.x.t)}</b>
-    <span class="muted" style="font-size:.78rem">${esc(MOD[it.m].name)} › ${esc(topic(it.m, it.ti).name)} • ${it.s.attempts} tentativa(s)</span></div><span class="diff d${diffOf(it.ei)}">${DIFF[diffOf(it.ei)]}</span></button>`).join("")}</div>`
+    <span class="muted" style="font-size:.78rem">${esc(MOD[it.m].name)} › ${esc(topic(it.m, it.ti).name)} • ${it.s.attempts} tentativa(s)</span></div><span class="diff d${dOf(it.x, it.ei)}">${DIFF[dOf(it.x, it.ei)]}</span></button>`).join("")}</div>`
     : `<div class="card"><p style="margin:0">✅ Nada para revisar. Continue avançando!</p><div class="row"><button class="btn acc" id="recB">▶ Próximo recomendado</button></div></div>`}`;
   app.appendChild(el);
   el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { const it = items[+b.dataset.k]; go({view: "ex", m: it.m, ti: it.ti, ei: it.ei}); });
@@ -703,6 +814,7 @@ function viewProg(app) {
       const mp = S.map[tk(M.id, ti)]?.done, qz = S.quiz[tk(M.id, ti)]?.done;
       return `<div class="prow"><div class="nm"><b>${ti + 1}. ${esc(t.name)}</b> <small class="muted">${n}/${t.ex.length}${tried ? ` • ${tried} para revisar` : ""}${mp ? " • 🧠" : ""}${qz ? " • ❓" : ""}${unlocked(M.id, ti) ? "" : " • 🔒"}</small><div class="bar"><i style="width:${n / t.ex.length * 100}%;background:${n === t.ex.length ? "var(--ok)" : "var(--mid)"}"></i></div></div>
       <button class="btn alt" data-m="${M.id}" data-ti="${ti}" ${unlocked(M.id, ti) ? "" : "disabled"}>Abrir</button></div>`; }).join("")}`).join("")}
+  <div class="row" style="margin-top:6px"><button class="btn ghost" id="toAch">🏆 Ver conquistas e níveis</button></div>
   <h3>☁️ Sincronizar entre aparelhos</h3>
   <div class="card">${window.PQSync ? PQSync.boxHTML() : '<p class="muted" style="margin:0">Sincronização indisponível.</p>'}</div>
   <h3>💾 Salvamento e backup</h3>
@@ -716,6 +828,7 @@ function viewProg(app) {
   app.appendChild(el);
   el.querySelectorAll(".prow .btn").forEach(b => b.onclick = () => go({view: "topic", m: b.dataset.m, ti: +b.dataset.ti, tab: "ex"}));
   if (window.PQSync) PQSync.bindBox();
+  $("#toAch").onclick = () => go({view: "ach"});
   $("#exp").onclick = () => {
     flushDraft(); save(true);
     const blob = new Blob([JSON.stringify({app: KEY, data: S}, null, 1)], {type: "application/json"});

@@ -1,7 +1,7 @@
 /* Service worker: deixa o sistema disponível offline depois da 1ª visita (inclui o Python/Pyodide em cache). */
-const VERSAO = "pyquest-v2";
+const VERSAO = "pyquest-v3";
 const APP = ["./", "index.html", "assets/app.css", "assets/app.js", "assets/harness.js", "assets/config.js", "assets/sync.js", "vendor/supabase.js", "assets/icon.svg",
-  "vendor/codemirror.css", "vendor/codemirror.js", "data/fundamentos.js", "data/basico.js", "data/intermediario.js", "manifest.webmanifest"];
+  "vendor/codemirror.css", "vendor/codemirror.js", "data/fundamentos.js", "data/basico.js", "data/intermediario.js", "data/banco.js", "data/projetos.js", "manifest.webmanifest"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(VERSAO).then(c => c.addAll(APP)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSAO && k !== "pyquest-cdn").map(k => caches.delete(k)))).then(() => self.clients.claim()));

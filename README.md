@@ -1,13 +1,21 @@
 # Python Quest: sistema de estudo de Python
 
-Painel com 3 módulos (**Fundamentos**, **Básico** e **Intermediário**), **26 fases** e **390 exercícios** corrigidos automaticamente com Python de verdade rodando no navegador ([Pyodide](https://pyodide.org)).
+Painel com 4 módulos (**Fundamentos**, **Básico**, **Intermediário** e **Banco de Exercícios**), **40 fases** e **850 exercícios** corrigidos automaticamente, mais **46 projetos práticos** guiados, com Python de verdade rodando no navegador ([Pyodide](https://pyodide.org)).
 
 Cada fase tem:
 - **Mapa mental interativo** em 6 formatos (radial, árvore, chaves, bolhas, fluxograma e comparação) com **modo memória**: as descrições ficam escondidas e você toca para revelar (+10 XP ao revelar tudo).
 - **Quiz relâmpago**, gerado a partir do mapa (+15 XP com 5 acertos ou mais em 6).
 - **Flashcards**.
-- **15 exercícios** (5 fáceis, 5 médios e 5 desafios), com editor, dicas progressivas e solução de referência liberada só depois da 1ª tentativa.
+- **15 exercícios** por fase nos 3 módulos principais (5 fáceis, 5 médios e 5 desafios); no Banco, de 12 a 54 por fase, com editor, dicas progressivas e solução de referência liberada só depois da 1ª tentativa.
 - Gamificação: XP, níveis, estrelas, conquistas, sequência de dias, "próximo recomendado" e "revisar erros".
+
+## Banco de Exercícios
+
+Módulo extra com **14 fases e 460 exercícios** organizados por tema (variáveis, condicionais, for, while, strings, listas, dicionários, funções, arquivos/JSON, POO, algoritmos, Python avançado, ciência de dados e programas completos). Fontes: *Python_Exercícios.docx* e *Python na Prática* (sem repetir exercícios). Todas as fases ficam liberadas. Exercícios com `input()` usam **entradas simuladas**: o enunciado mostra os valores que serão digitados e os testes rodam o programa de novo com outros valores.
+
+## Projetos
+
+Aba **🛠️ Projetos**: **46 guias em texto** (sem código pronto) para fazer no seu computador, em 5 trilhas: Programas de console, Projetos com frameworks, Análise e ciência de dados, Portfólio para o currículo e Desafios Pro. Cada guia tem contexto, objetivo, o que você pratica, etapas com dicas, critérios de "pronto", desafios extras e cuidados. Marcar etapas dá +5 XP e concluir o projeto (todos os critérios marcados) dá +50 XP. Há também um **banco de ideias** com 136 sugestões curtas.
 
 ## Estrutura
 
@@ -19,6 +27,8 @@ assets/harness.js       ← código Python que roda os testes (gerado a partir d
 data/fundamentos.js     ← conteúdo de cada módulo (mapas + exercícios)
 data/basico.js
 data/intermediario.js
+data/banco.js           ← Banco de Exercícios
+data/projetos.js        ← guias de projetos (gerado de ferramentas/content/projetos.py)
 vendor/codemirror.*     ← editor de código (funciona offline)
 sw.js, manifest.webmanifest ← funcionamento offline e "instalar app" no celular
 ferramentas/            ← fontes do conteúdo + scripts para gerar e validar
@@ -76,6 +86,8 @@ O arquivo `.nojekyll` já está incluído (evita processamento extra do GitHub P
 
 O conteúdo fica em `ferramentas/`:
 - `content/*.py`: as **12 fases novas** (uma por arquivo, no formato `TOPIC = dict(...)`).
+- `content/banco/b*.py`: as 14 fases do Banco (helper `E(dificuldade, título, enunciado, solução, teste, dicas, setup)` e `ENT(...)` para entradas simuladas). Valide um arquivo com `python runbanco.py content/banco/b08_funcoes.py`.
+- `content/projetos.py`: trilhas, projetos e banco de ideias.
 - `fases_reaproveitadas.json`: as **14 fases** que vieram do `Python_Quest_Mapa_Mental.html` original (validadas e mantidas). Os ajustes aplicados a elas estão em `build.py`.
 - `harness.py`: o executor Python (testes, simuladores de Selenium e SMTP, captura de gráficos).
 
@@ -90,7 +102,7 @@ dict(
     h=["dica 1", "dica 2"],
 )
 ```
-Nos testes ficam disponíveis: as variáveis do aluno, `saida` (tudo o que ele imprimiu), `rodar(**novos_valores)` (roda de novo trocando dados), `codigo` (texto do código), `_smtp.ENVIADOS` (e-mails simulados) e `_nav` (navegadores simulados).
+Nos testes ficam disponíveis: as variáveis do aluno, `executar(*entradas)` (roda de novo com outras entradas de `input()`), `tem(texto, ...)` e `nums(texto)`, `saida` (tudo o que ele imprimiu), `rodar(**novos_valores)` (roda de novo trocando dados), `codigo` (texto do código), `_smtp.ENVIADOS` (e-mails simulados) e `_nav` (navegadores simulados).
 
 Depois de editar:
 ```
@@ -109,4 +121,6 @@ Para validar as fases com pacotes, instale as mesmas versões do Pyodide 0.27.2:
 - **PDF** (Módulo 25) e **requests/APIs reais**: não rodam no navegador. Estão no mapa mental com exemplos para executar no seu PC; os exercícios cobrem arquivos de texto/CSV e respostas JSON.
 - Os **Módulos 1 e 2** dos PDFs (introdução e instalação) não viraram fases, porque não têm conteúdo de código para exercitar.
 - **Seaborn** é instalado sob demanda via `micropip` (precisa de internet na 1ª vez).
+- **Projetos** não rodam no site (são feitos no seu computador); o site guarda o progresso das etapas, critérios, link do repositório e anotações.
+- Os exercícios de **ciência de dados do Banco** foram validados em CPython com as mesmas versões de NumPy/pandas/matplotlib do Pyodide; os demais 759 foram validados também no Pyodide real.
 - Os exercícios são **autorais**, baseados nos temas das apostilas.

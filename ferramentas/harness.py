@@ -2,8 +2,17 @@ import sys, io, os, json, traceback, builtins, tempfile, types, re
 
 os.environ.setdefault("MPLBACKEND", "Agg")
 
+# input() simulado: quando o exercício define `entradas = [...]`, cada input() consome o próximo valor
+_FILA = {"ativa": False, "itens": []}
+
 def _input(prompt=""):
-    raise RuntimeError("input() não é usado nos exercícios: os dados já estão nas variáveis indicadas.")
+    if not _FILA["ativa"]:
+        raise RuntimeError("input() não é usado neste exercício: os dados já estão nas variáveis indicadas.")
+    if not _FILA["itens"]:
+        raise EOFError("Seu programa pediu mais entradas do que as disponíveis (veja ⌨️ Entradas simuladas).")
+    v = _FILA["itens"].pop(0)
+    sys.stdout.write(f"{prompt}{v}\n")
+    return v
 builtins.input = _input
 
 # ------------------------------------------------------------------
@@ -357,6 +366,10 @@ def _exec(code, setup, kw):
         if setup:
             exec(compile(setup, "<dados>", "exec"), ns)
         ns.update(kw)
+        if "entradas" in ns:
+            _FILA["ativa"], _FILA["itens"] = True, [str(x) for x in ns["entradas"]]
+        else:
+            _FILA["ativa"], _FILA["itens"] = False, []
         exec(compile(code, "<seu código>", "exec"), ns)
     finally:
         sys.stdout = old
@@ -377,6 +390,30 @@ def _figuras():
         except Exception:
             pass
     return imgs
+
+def _tem(texto, *partes):
+    """Verifica se todas as partes aparecem no texto (sem diferenciar maiúsculas; aceita vírgula decimal)."""
+    t = str(texto).lower()
+    for p in partes:
+        p = str(p).lower()
+        if p not in t and p.replace(".", ",") not in t:
+            return False
+    return True
+
+def _nums(texto):
+    """Lista de números encontrados no texto (aceita 1,234.56 e 1.234,56 e 12,5)."""
+    achados = []
+    for m in re.findall(r"-?\d[\d.,]*", str(texto)):
+        m = m.rstrip(".,")
+        if "," in m and "." in m:
+            m = m.replace(".", "").replace(",", ".") if m.rfind(",") > m.rfind(".") else m.replace(",", "")
+        elif "," in m:
+            m = m.replace(",", ".") if len(m.split(",")[-1]) != 3 else m.replace(",", "")
+        try:
+            achados.append(float(m))
+        except ValueError:
+            pass
+    return achados
 
 def _err_info(e):
     line = None
@@ -407,6 +444,9 @@ def run_json(args):
         env["codigo"] = code
         env["_smtp"] = _smtplib
         env["_nav"] = NAVEGADORES
+        env["executar"] = lambda *ent: _exec(code, setup, {"entradas": list(ent)})["saida"]
+        env["tem"] = _tem
+        env["nums"] = _nums
         buf = io.StringIO(); old = sys.stdout; sys.stdout = buf
         try:
             exec(compile(test, "<teste>", "exec"), env)

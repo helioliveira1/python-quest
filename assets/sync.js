@@ -38,12 +38,21 @@ const PQSync = (() => {
       out.quiz[k] = {best: Math.max(n.best || 0, v.best || 0), done: !!(n.done || v.done), plays: Math.max(n.plays || 0, v.plays || 0)};
     }
     for (const [k, v] of Object.entries(older.achv || {})) if (!out.achv[k] || v < out.achv[k]) out.achv[k] = v;
+    out.proj = out.proj || {};
+    const uni = (a, b) => [...new Set([...(a || []), ...(b || [])])];
+    for (const [k, v] of Object.entries(older.proj || {})) {
+      const n = out.proj[k];
+      if (!n) { out.proj[k] = v; continue; }
+      out.proj[k] = Object.assign({}, n, {steps: uni(n.steps, v.steps), crit: uni(n.crit, v.crit), cred: uni(n.cred, v.cred), hints: uni(n.hints, v.hints),
+        done: !!(n.done || v.done), repo: n.repo || v.repo || "", notas: n.notas || v.notas || ""});
+    }
     out.days = [...new Set([...(newer.days || []), ...(older.days || [])])].sort();
     out.layout = Object.assign({}, older.layout || {}, newer.layout || {});
     out.created = [local.created, remote.created].filter(Boolean).sort()[0] || out.created;
     // XP é recalculado a partir das partes, para não somar em dobro
     out.xp = Object.values(out.ex).reduce((a, x) => a + (x.solved ? (x.xp || 0) : 0), 0)
-      + 10 * Object.values(out.map).filter(m => m.done).length + 15 * Object.values(out.quiz).filter(q => q.done).length;
+      + 10 * Object.values(out.map).filter(m => m.done).length + 15 * Object.values(out.quiz).filter(q => q.done).length
+      + Object.values(out.proj).reduce((a, p) => a + 5 * (p.cred || []).length + (p.done ? 50 : 0), 0);
     out.updated = new Date(Math.max(tl, tr, Date.now())).toISOString();
     return out;
   }
